@@ -136,9 +136,14 @@ class GraphQLEngine:
                 ]
                 
                 for p in patterns:
-                    match = re.search(p, response.text)
-                    if match:
-                        return match.group(1)
+                    matches = re.findall(p, response.text)
+                    for m in matches:
+                        try:
+                            decoded = base64.b64decode(m).decode('utf-8')
+                            if "feedback:" in decoded and "_" not in decoded:
+                                return m
+                        except:
+                            pass
                         
                 # Fallback to URL regex if HTML parsing fails
                 fallback_patterns = [
