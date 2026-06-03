@@ -7,10 +7,10 @@
   "properties": {
     "postUrls": {
       "title": "Facebook Post URLs",
-      "type": "array",
-      "description": "List of Facebook post URLs to scrape comments from.",
-      "editor": "stringList",
-      "prefill": ["https://www.facebook.com/.../posts/..."],
+      "type": "string",
+      "description": "List of Facebook post URLs to scrape comments from. Enter one URL per line. You can paste as many as you want.",
+      "editor": "textarea",
+      "prefill": "https://www.facebook.com/.../posts/...\nhttps://www.facebook.com/.../posts/...",
       "sectionCaption": "Target Posts",
       "sectionDescription": "Which Facebook posts to scrape"
     },

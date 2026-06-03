@@ -61,7 +61,12 @@ async def main():
     async with Actor:
         actor_input = await Actor.get_input() or {}
 
-        post_urls = actor_input.get("postUrls", [])
+        raw_post_urls = actor_input.get("postUrls", "")
+        if isinstance(raw_post_urls, str):
+            post_urls = [url.strip() for url in raw_post_urls.splitlines() if url.strip()]
+        else:
+            post_urls = [str(url).strip() for url in raw_post_urls if str(url).strip()]
+
         cookie_str = actor_input.get("cookies", "").strip()
         fb_dtsg = actor_input.get("fbDtsg", "").strip()
         max_comments = actor_input.get("maxComments", 0)
