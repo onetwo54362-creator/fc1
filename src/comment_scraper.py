@@ -14,11 +14,25 @@ from .models import CommentData
 log = logging.getLogger(__name__)
 
 
+# Facebook uses static node IDs for each reaction type in comment feedback.
+# These are well-known and stable across the platform.
+REACTION_ID_MAP = {
+    "1635855486666999": "like",
+    "1678524932434102": "love",
+    "115940658764963":  "haha",
+    "478547315650144":  "wow",
+    "908563459236466":  "sad",
+    "444813342392137":  "angry",
+    "613557422527858":  "care",
+}
+
+
 def _extract_reaction_breakdown(feedback: dict) -> dict:
     """Extract per-type reaction counts from a comment's feedback node.
     
-    Facebook's GraphQL returns reactions in feedback.top_reactions.edges,
-    each edge containing {node: {reaction_type: "LIKE"}, reaction_count: N}.
+    Facebook's comment GraphQL returns reactions in feedback.top_reactions.edges.
+    Each edge has {node: {id: "1635855486666999"}, reaction_count: N}.
+    The node ID maps to a reaction type (Like, Love, Haha, etc.).
     """
     breakdown = {
         "total": 0, "like": 0, "love": 0, "haha": 0,
@@ -30,12 +44,20 @@ def _extract_reaction_breakdown(feedback: dict) -> dict:
         edges = top_reactions.get("edges", [])
         for edge in edges:
             reaction_node = edge.get("node", {})
-            reaction_type = (
-                reaction_node.get("reaction_type") 
-                or reaction_node.get("localized_name") 
-                or ""
-            ).lower()
             count = edge.get("reaction_count", 0)
+            
+            # Method 1: Map by node ID (comment feedback uses this)
+            node_id = reaction_node.get("id", "")
+            reaction_type = REACTION_ID_MAP.get(node_id, "")
+            
+            # Method 2: Fallback to reaction_type or localized_name (post feedback)
+            if not reaction_type:
+                reaction_type = (
+                    reaction_node.get("reaction_type") 
+                    or reaction_node.get("localized_name") 
+                    or ""
+                ).lower()
+            
             if reaction_type in breakdown:
                 breakdown[reaction_type] = count
     
