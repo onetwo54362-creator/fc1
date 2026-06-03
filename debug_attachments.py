@@ -26,58 +26,78 @@ async def main():
         "cookie": COOKIES,
     }
     
-    variables = {
-        "commentsAfterCount": -1,
-        "commentsAfterCursor": None,
-        "commentsIntentToken": "REVERSE_CHRONOLOGICAL_UNFILTERED_INTENT_V1",
-        "feedLocation": "DEDICATED_COMMENTING_SURFACE",
-        "focusCommentID": None,
-        "scale": 2,
-        "useDefaultActor": False,
-        "id": FEEDBACK_ID,
-    }
-    
-    payload = {
-        "variables": json.dumps(variables),
-        "doc_id": DOC_ID,
-        "fb_api_req_friendly_name": "CommentsListComponentsPaginationQuery",
-    }
+    cursor = None
+    count = 0
+    found_media = 0
     
     async with httpx.AsyncClient() as client:
-        resp = await client.post(GRAPHQL_URL, data=payload, headers=headers)
-        text = resp.text
-        
-        # Parse FB response (strip for (;;); prefix)
-        for line in text.split("\n"):
-            line = line.strip()
-            if line.startswith("for (;;);"):
-                line = line[len("for (;;);"):]
-            if not line.startswith("{"):
-                continue
-            try:
-                obj = json.loads(line)
-                data = obj.get("data", {})
-                if not data:
+        while count < 200:
+            variables = {
+                "commentsAfterCount": -1,
+                "commentsAfterCursor": cursor,
+                "commentsIntentToken": "REVERSE_CHRONOLOGICAL_UNFILTERED_INTENT_V1",
+                "feedLocation": "DEDICATED_COMMENTING_SURFACE",
+                "focusCommentID": None,
+                "scale": 2,
+                "useDefaultActor": False,
+                "id": FEEDBACK_ID,
+            }
+            
+            payload = {
+                "variables": json.dumps(variables),
+                "doc_id": DOC_ID,
+                "fb_api_req_friendly_name": "CommentsListComponentsPaginationQuery",
+            }
+            
+            resp = await client.post(GRAPHQL_URL, data=payload, headers=headers)
+            text = resp.text
+            
+            # Parse FB response
+            comments_data = None
+            for line in text.split("\n"):
+                line = line.strip()
+                if line.startswith("for (;;);"):
+                    line = line[len("for (;;);"):]
+                if not line.startswith("{"):
                     continue
-                    
-                # Get comments
-                comments = (data.get("node", {})
-                    .get("comment_rendering_instance_for_feed_location", {})
-                    .get("comments", {})
-                    .get("edges", []))
+                try:
+                    obj = json.loads(line)
+                    data = obj.get("data", {})
+                    if data and "node" in data:
+                        comments_data = data
+                        break
+                except json.JSONDecodeError:
+                    continue
+            
+            if not comments_data:
+                print("No more data.")
+                break
                 
-                for i, edge in enumerate(comments):
-                    node = edge.get("node", {})
-                    author = node.get("author", {})
-                    body = (node.get("body") or {}).get("text", "")
+            comments_block = (comments_data.get("node", {})
+                .get("comment_rendering_instance_for_feed_location", {})
+                .get("comments", {}))
+                
+            edges = comments_block.get("edges", [])
+            if not edges:
+                break
+                
+            for edge in edges:
+                count += 1
+                node = edge.get("node", {})
+                author = node.get("author", {})
+                body = (node.get("body") or {}).get("text", "")
+                
+                attachments = node.get("attachments", [])
+                if attachments:
+                    found_media += 1
+                    print(f"\n--- Comment {count}: {author.get('name')} ---")
+                    print(f"Text: {body[:80]}")
+                    print(f"Attachments: {json.dumps(attachments, indent=2, ensure_ascii=False)}")
                     
-                    attachments = node.get("attachments", [])
-                    if attachments:
-                        print(f"\n--- Comment {i+1}: {author.get('name')} ---")
-                        print(f"Text: {body[:80]}")
-                        print(f"Attachments: {json.dumps(attachments, indent=2, ensure_ascii=False)}")
-                    
-            except json.JSONDecodeError:
-                continue
+            cursor = comments_block.get("page_info", {}).get("end_cursor")
+            if not cursor:
+                break
+                
+    print(f"\nScanned {count} comments, found {found_media} with attachments.")
 
 asyncio.run(main())
