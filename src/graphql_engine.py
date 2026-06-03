@@ -120,6 +120,7 @@ class GraphQLEngine:
     async def resolve_post_id(self, post_url: str) -> Optional[str]:
         """Extract the feedback/post ID from a URL using regex."""
         import re
+        import base64
         
         # E.g. facebook.com/pagename/posts/123456
         patterns = [
@@ -130,29 +131,16 @@ class GraphQLEngine:
             r'/groups/[^/]+/permalink/(\d+)',
         ]
         
+        raw_id = None
         for pattern in patterns:
             match = re.search(pattern, post_url)
             if match:
-                return match.group(1)
+                raw_id = match.group(1)
+                break
                 
-        # If regex fails, do a GET and look for feedback ID
-        try:
-            headers = get_base_headers(user_agent=self._user_agent)
-            response = await self._client.get(post_url, headers=headers)
-            if response.status_code == 200:
-                match = re.search(r'"feedback_id":"([^"]+)"', response.text)
-                if match:
-                    # decode base64 if needed, sometimes it's base64 encoded
-                    import base64
-                    try:
-                        decoded = base64.b64decode(match.group(1)).decode('utf-8')
-                        if "Feedback" in decoded:
-                            return match.group(1) # Return the raw one, GraphQL expects base64 feedback_id usually
-                    except:
-                        pass
-                    return match.group(1)
-        except Exception as e:
-            log.error(f"Error fetching post URL: {e}")
+        if raw_id:
+            # Facebook GraphQL usually expects the feedback ID to be base64 encoded
+            return base64.b64encode(f"feedback:{raw_id}".encode('utf-8')).decode('utf-8')
 
         return None
 
