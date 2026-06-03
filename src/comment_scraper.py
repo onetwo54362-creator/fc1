@@ -13,6 +13,46 @@ from .models import CommentData
 
 log = logging.getLogger(__name__)
 
+
+def _extract_reaction_breakdown(feedback: dict) -> dict:
+    """Extract per-type reaction counts from a comment's feedback node.
+    
+    Facebook's GraphQL returns reactions in feedback.top_reactions.edges,
+    each edge containing {node: {reaction_type: "LIKE"}, reaction_count: N}.
+    """
+    breakdown = {
+        "total": 0, "like": 0, "love": 0, "haha": 0,
+        "wow": 0, "sad": 0, "angry": 0, "care": 0,
+    }
+    
+    top_reactions = feedback.get("top_reactions", {})
+    if top_reactions and isinstance(top_reactions, dict):
+        edges = top_reactions.get("edges", [])
+        for edge in edges:
+            reaction_node = edge.get("node", {})
+            reaction_type = (
+                reaction_node.get("reaction_type") 
+                or reaction_node.get("localized_name") 
+                or ""
+            ).lower()
+            count = edge.get("reaction_count", 0)
+            if reaction_type in breakdown:
+                breakdown[reaction_type] = count
+    
+    # Total from reactors.count_reduced (more reliable than summing)
+    reactors = feedback.get("reactors", {})
+    total = reactors.get("count_reduced", 0)
+    if isinstance(total, str):
+        total = int(total) if total.isdigit() else 0
+    
+    if total > 0:
+        breakdown["total"] = total
+    else:
+        breakdown["total"] = sum(v for k, v in breakdown.items() if k != "total")
+    
+    return breakdown
+
+
 class CommentScraper:
     """Fetches comments and replies for Facebook posts."""
 
@@ -74,9 +114,7 @@ class CommentScraper:
             for edge in edges:
                 node = edge.get("node", {})
                 fb = node.get("feedback", {})
-                
-                reactors = fb.get("reactors", {})
-                total_reactions = reactors.get("count_reduced", "0")
+                reactions = _extract_reaction_breakdown(fb)
 
                 comment_id = node.get("legacy_fbid") or node.get("id") or ""
                 author_node = node.get("author", {}) or {}
@@ -90,7 +128,14 @@ class CommentScraper:
                     text=(node.get("body") or {}).get("text", ""),
                     author_name=author_node.get("name", ""),
                     author_url=author_node.get("url", ""),
-                    reaction_count=int(total_reactions) if str(total_reactions).isdigit() else 0,
+                    reaction_count=reactions["total"],
+                    reactions_like=reactions["like"],
+                    reactions_love=reactions["love"],
+                    reactions_haha=reactions["haha"],
+                    reactions_wow=reactions["wow"],
+                    reactions_sad=reactions["sad"],
+                    reactions_angry=reactions["angry"],
+                    reactions_care=reactions["care"],
                     feedback_id=fb.get("id", ""),
                     expansion_token=(
                         fb.get("expansion_info", {}).get("expansion_token", "")
@@ -181,9 +226,7 @@ class CommentScraper:
         for edge in edges:
             node = edge.get("node", {})
             fb = node.get("feedback", {})
-
-            reactors = fb.get("reactors", {})
-            total_reactions = reactors.get("count_reduced", "0")
+            reactions = _extract_reaction_breakdown(fb)
             
             reply_id = node.get("legacy_fbid") or node.get("id") or ""
             author_node = node.get("author", {}) or {}
@@ -197,7 +240,14 @@ class CommentScraper:
                 text=(node.get("body") or {}).get("text", ""),
                 author_name=author_node.get("name", ""),
                 author_url=author_node.get("url", ""),
-                reaction_count=int(total_reactions) if str(total_reactions).isdigit() else 0,
+                reaction_count=reactions["total"],
+                reactions_like=reactions["like"],
+                reactions_love=reactions["love"],
+                reactions_haha=reactions["haha"],
+                reactions_wow=reactions["wow"],
+                reactions_sad=reactions["sad"],
+                reactions_angry=reactions["angry"],
+                reactions_care=reactions["care"],
                 is_reply=True,
                 parent_comment_id=parent_comment.comment_id
             )

@@ -19,7 +19,14 @@ class CommentData:
     author_name: str = ""
     author_url: str = ""
     reaction_count: int = 0
-    reply_count: int = 0            # how many replies this comment has (0 for replies)
+    reactions_like: int = 0
+    reactions_love: int = 0
+    reactions_haha: int = 0
+    reactions_wow: int = 0
+    reactions_sad: int = 0
+    reactions_angry: int = 0
+    reactions_care: int = 0
+    reply_count: int = 0
     feedback_id: str = ""
     expansion_token: str = ""
     is_reply: bool = False
@@ -46,6 +53,13 @@ class CommentData:
             "author_url": self.author_url,
             "text": self.text,
             "reaction_count": self.reaction_count,
+            "reactions_like": self.reactions_like,
+            "reactions_love": self.reactions_love,
+            "reactions_haha": self.reactions_haha,
+            "reactions_wow": self.reactions_wow,
+            "reactions_sad": self.reactions_sad,
+            "reactions_angry": self.reactions_angry,
+            "reactions_care": self.reactions_care,
             "reply_count": self.reply_count,
             "is_reply": self.is_reply,
             "parent_comment_id": self.parent_comment_id,
@@ -66,6 +80,13 @@ class CommentData:
             self.author_url,
             self.text,
             self.reaction_count,
+            self.reactions_like,
+            self.reactions_love,
+            self.reactions_haha,
+            self.reactions_wow,
+            self.reactions_sad,
+            self.reactions_angry,
+            self.reactions_care,
             self.reply_count,
             "Yes" if self.is_reply else "No",
             self.parent_comment_id,
@@ -83,9 +104,17 @@ EXCEL_HEADERS = [
     "Author Name",
     "Author URL",
     "Comment Text",
-    "Reaction Count",
+    "Reactions Total",
+    "👍 Like",
+    "❤️ Love",
+    "😂 Haha",
+    "😮 Wow",
+    "😢 Sad",
+    "😠 Angry",
+    "🤗 Care",
     "Reply Count",
     "Is Reply",
     "Parent Comment ID",
     "Scraped At (ISO)",
 ]
+

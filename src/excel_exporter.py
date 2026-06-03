@@ -52,11 +52,18 @@ class ExcelExporter:
             8: 20,  # Author Name
             9: 40,  # Author URL
             10: 60, # Comment Text
-            11: 12, # Reaction Count
-            12: 12, # Reply Count
-            13: 10, # Is Reply
-            14: 18, # Parent Comment ID
-            15: 20, # Scraped At
+            11: 12, # Reactions Total
+            12: 8,  # 👍 Like
+            13: 8,  # ❤️ Love
+            14: 8,  # 😂 Haha
+            15: 8,  # 😮 Wow
+            16: 8,  # 😢 Sad
+            17: 8,  # 😠 Angry
+            18: 8,  # 🤗 Care
+            19: 12, # Reply Count
+            20: 10, # Is Reply
+            21: 18, # Parent Comment ID
+            22: 20, # Scraped At
         }
         for col, width in column_widths.items():
             self._sheet.column_dimensions[get_column_letter(col)].width = width
