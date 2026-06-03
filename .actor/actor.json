@@ -1,0 +1,42 @@
+{
+  "actorSpecification": 1,
+  "name": "facebook-comment-exporter",
+  "title": "Facebook Comment Exporter",
+  "description": "Scrape comments and nested replies from any Facebook post URL and export them to Excel/JSON. Bypasses limits using internal GraphQL API.",
+  "version": "1.0.0",
+  "buildTag": "latest",
+  "dockerfile": "../Dockerfile",
+  "input": "./input_schema.json",
+  "storages": {
+    "dataset": {
+      "actorSpecification": 1,
+      "title": "Facebook Comments",
+      "views": {
+        "comments": {
+          "title": "Comments",
+          "transformation": {
+            "fields": [
+              "comment_id",
+              "post_id",
+              "author_name",
+              "text",
+              "reaction_count",
+              "is_reply"
+            ]
+          },
+          "display": {
+            "component": "table",
+            "properties": {
+              "comment_id": { "label": "Comment ID", "format": "text" },
+              "post_id": { "label": "Post ID", "format": "text" },
+              "author_name": { "label": "Author", "format": "text" },
+              "text": { "label": "Comment", "format": "text" },
+              "reaction_count": { "label": "Reactions", "format": "number" },
+              "is_reply": { "label": "Is Reply?", "format": "boolean" }
+            }
+          }
+        }
+      }
+    }
+  }
+}

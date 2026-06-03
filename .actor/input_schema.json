@@ -1,0 +1,95 @@
+{
+  "title": "Facebook Comment Exporter Input",
+  "description": "Configure the scraper to extract comments and replies from Facebook posts.",
+  "type": "object",
+  "schemaVersion": 1,
+  "required": ["postUrls", "cookies"],
+  "properties": {
+    "postUrls": {
+      "title": "Facebook Post URLs",
+      "type": "array",
+      "description": "List of Facebook post URLs to scrape comments from.",
+      "editor": "stringList",
+      "prefill": ["https://www.facebook.com/.../posts/..."],
+      "sectionCaption": "Target Posts",
+      "sectionDescription": "Which Facebook posts to scrape"
+    },
+    "cookies": {
+      "title": "Facebook Cookies",
+      "type": "string",
+      "description": "Your Facebook session cookies. Required for authenticated access. Must contain c_user and xs cookies at minimum.",
+      "editor": "textarea",
+      "isSecret": true,
+      "sectionCaption": "Authentication",
+      "sectionDescription": "Facebook session credentials"
+    },
+    "fbDtsg": {
+      "title": "fb_dtsg Token (Optional)",
+      "type": "string",
+      "description": "Facebook CSRF token. Leave empty to auto-fetch it from your cookies (recommended).",
+      "editor": "textfield",
+      "isSecret": true
+    },
+    "maxComments": {
+      "title": "Maximum Comments per Post",
+      "type": "integer",
+      "description": "Maximum number of top-level comments to scrape per post. Set to 0 for unlimited.",
+      "default": 0,
+      "minimum": 0,
+      "sectionCaption": "Scraping Options"
+    },
+    "includeReplies": {
+      "title": "Include Replies",
+      "type": "boolean",
+      "description": "Also scrape nested replies for each comment. This significantly increases scraping time.",
+      "default": true
+    },
+    "minBatchSize": {
+      "title": "Min Batch Size",
+      "type": "integer",
+      "description": "Minimum number of requests before triggering a random cooldown.",
+      "default": 10,
+      "minimum": 1,
+      "maximum": 50,
+      "sectionCaption": "Anti-Detection"
+    },
+    "maxBatchSize": {
+      "title": "Max Batch Size",
+      "type": "integer",
+      "description": "Maximum number of requests before triggering a random cooldown.",
+      "default": 30,
+      "minimum": 1,
+      "maximum": 100
+    },
+    "minCooldownSeconds": {
+      "title": "Min Cooldown (seconds)",
+      "type": "number",
+      "description": "Minimum random cooldown duration in seconds.",
+      "default": 2,
+      "minimum": 1,
+      "maximum": 60
+    },
+    "maxCooldownSeconds": {
+      "title": "Max Cooldown (seconds)",
+      "type": "number",
+      "description": "Maximum random cooldown duration in seconds.",
+      "default": 8,
+      "minimum": 1,
+      "maximum": 120
+    },
+    "proxyUrl": {
+      "title": "Proxy URL",
+      "type": "string",
+      "description": "Custom proxy URL. Format: http://user:pass@host:port. Leave empty for direct connection.",
+      "editor": "textfield",
+      "isSecret": true
+    },
+    "excelExport": {
+      "title": "Export to Excel",
+      "type": "boolean",
+      "description": "Generate an Excel (.xlsx) file with all scraped comments.",
+      "default": true,
+      "sectionCaption": "Export Options"
+    }
+  }
+}

@@ -1,0 +1,185 @@
+"""Comment and reply scraper.
+
+Uses GraphQL API to fetch all comments and nested replies for a post.
+"""
+
+from __future__ import annotations
+
+import logging
+from typing import Optional
+
+from .constants import DOC_IDS, FRIENDLY_NAMES
+from .models import CommentData
+
+log = logging.getLogger(__name__)
+
+class CommentScraper:
+    """Fetches comments and replies for Facebook posts."""
+
+    def __init__(self, graphql_engine, rate_limiter=None, include_replies=True):
+        self.engine = graphql_engine
+        self.rate_limiter = rate_limiter
+        self.include_replies = include_replies
+        self._total_comments = 0
+        self._total_replies = 0
+
+    async def fetch_comments(
+        self, feedback_id: str, post_id: str, max_comments: int = 0
+    ) -> list[CommentData]:
+        if not feedback_id:
+            log.warning("No feedback_id provided, cannot fetch comments.")
+            return []
+
+        comments = []
+        cursor = None
+        page_num = 0
+
+        while True:
+            page_num += 1
+            variables = {
+                "commentsAfterCount": -1,
+                "commentsAfterCursor": cursor,
+                "commentsIntentToken": "REVERSE_CHRONOLOGICAL_UNFILTERED_INTENT_V1",
+                "feedLocation": "DEDICATED_COMMENTING_SURFACE",
+                "focusCommentID": None,
+                "scale": 2,
+                "useDefaultActor": False,
+                "id": feedback_id,
+            }
+
+            if self.rate_limiter:
+                await self.rate_limiter.on_request()
+
+            response = await self.engine.request_json(
+                doc_id=DOC_IDS["COMMENTS"],
+                variables=variables,
+                friendly_name=FRIENDLY_NAMES["COMMENTS"],
+            )
+
+            if not response:
+                break
+
+            comments_block = (
+                response.get("data", {})
+                .get("node", {})
+                .get("comment_rendering_instance_for_feed_location", {})
+                .get("comments", {})
+            )
+
+            edges = comments_block.get("edges", [])
+            if not edges:
+                break
+
+            for edge in edges:
+                node = edge.get("node", {})
+                fb = node.get("feedback", {})
+                
+                reactors = fb.get("reactors", {})
+                total_reactions = reactors.get("count_reduced", "0")
+
+                comment_id = node.get("legacy_fbid") or node.get("id") or ""
+                author_node = node.get("author", {}) or {}
+                
+                comment = CommentData(
+                    comment_id=comment_id,
+                    post_id=post_id,
+                    text=(node.get("body") or {}).get("text", ""),
+                    author_name=author_node.get("name", ""),
+                    author_url=author_node.get("url", ""),
+                    reaction_count=int(total_reactions) if str(total_reactions).isdigit() else 0,
+                    feedback_id=fb.get("id", ""),
+                    expansion_token=(
+                        fb.get("expansion_info", {}).get("expansion_token", "")
+                    ),
+                    is_reply=False
+                )
+
+                comments.append(comment)
+                self._total_comments += 1
+
+                if self.include_replies and comment.feedback_id and comment.expansion_token:
+                    replies = await self._fetch_replies(comment)
+                    comments.extend(replies)
+
+                if max_comments > 0 and self._total_comments >= max_comments:
+                    break
+
+            if max_comments > 0 and self._total_comments >= max_comments:
+                break
+
+            cursor = comments_block.get("page_info", {}).get("end_cursor")
+            if not cursor:
+                break
+
+            if self.rate_limiter:
+                await self.rate_limiter.pagination_delay()
+
+        log.info(
+            f"  💬 Fetched {self._total_comments} comments, "
+            f"{self._total_replies} replies for post {post_id}"
+        )
+        return comments
+
+    async def _fetch_replies(self, parent_comment: CommentData) -> list[CommentData]:
+        """Fetch replies for a single comment."""
+        variables = {
+            "clientKey": None,
+            "expansionToken": parent_comment.expansion_token,
+            "feedLocation": "POST_PERMALINK_DIALOG",
+            "focusCommentID": None,
+            "scale": 2,
+            "useDefaultActor": False,
+            "id": parent_comment.feedback_id,
+        }
+
+        if self.rate_limiter:
+            await self.rate_limiter.on_request()
+            await self.rate_limiter.pagination_delay()
+
+        response = await self.engine.request_json(
+            doc_id=DOC_IDS["REPLIES"],
+            variables=variables,
+            friendly_name=FRIENDLY_NAMES["REPLIES"],
+        )
+
+        if not response:
+            return []
+
+        replies = []
+        edges = (
+            response.get("data", {})
+            .get("node", {})
+            .get("replies_connection", {})
+            .get("edges", [])
+        )
+
+        for edge in edges:
+            node = edge.get("node", {})
+            fb = node.get("feedback", {})
+
+            reactors = fb.get("reactors", {})
+            total_reactions = reactors.get("count_reduced", "0")
+            
+            reply_id = node.get("legacy_fbid") or node.get("id") or ""
+            author_node = node.get("author", {}) or {}
+
+            reply = CommentData(
+                comment_id=reply_id,
+                post_id=parent_comment.post_id,
+                text=(node.get("body") or {}).get("text", ""),
+                author_name=author_node.get("name", ""),
+                author_url=author_node.get("url", ""),
+                reaction_count=int(total_reactions) if str(total_reactions).isdigit() else 0,
+                is_reply=True,
+                parent_comment_id=parent_comment.comment_id
+            )
+            replies.append(reply)
+            self._total_replies += 1
+
+        return replies
+
+    def get_stats(self) -> dict:
+        return {
+            "total_comments": self._total_comments,
+            "total_replies": self._total_replies,
+        }
