@@ -75,6 +75,43 @@ def _extract_reaction_breakdown(feedback: dict) -> dict:
     return breakdown
 
 
+def _extract_attachment(node: dict) -> tuple[str, str]:
+    """Extract (type, url) of the first attachment on a comment/reply.
+    Returns e.g. ('photo', 'https://...'), ('sticker', '...'), or ('', '').
+    """
+    attachments = node.get("attachments", [])
+    if not attachments:
+        return "", ""
+        
+    for att in attachments:
+        styles = att.get("styles", {})
+        attachment = styles.get("attachment", {})
+        
+        # Check for Stickers
+        if attachment.get("__typename") == "Sticker":
+            url = attachment.get("url") or attachment.get("image", {}).get("uri", "")
+            return "sticker", url
+            
+        media = attachment.get("media", {})
+        if not media:
+            continue
+            
+        typename = media.get("__typename", "")
+        
+        if typename == "Photo":
+            img = media.get("image") or media.get("photo_image") or {}
+            return "photo", img.get("uri", "")
+            
+        elif typename == "Video":
+            is_gif = media.get("is_looping", False)
+            url = media.get("playable_url_quality_hd") or media.get("playable_url") or ""
+            if "gif" in str(url).lower() or is_gif:
+                return "gif", url
+            return "video", url
+            
+    return "", ""
+
+
 class CommentScraper:
     """Fetches comments and replies for Facebook posts."""
 
@@ -137,6 +174,7 @@ class CommentScraper:
                 node = edge.get("node", {})
                 fb = node.get("feedback", {})
                 reactions = _extract_reaction_breakdown(fb)
+                media_type, media_url = _extract_attachment(node)
 
                 comment_id = node.get("legacy_fbid") or node.get("id") or ""
                 author_node = node.get("author", {}) or {}
@@ -150,6 +188,8 @@ class CommentScraper:
                     text=(node.get("body") or {}).get("text", ""),
                     author_name=author_node.get("name", ""),
                     author_url=author_node.get("url", ""),
+                    media_type=media_type,
+                    media_url=media_url,
                     reaction_count=reactions["total"],
                     reactions_like=reactions["like"],
                     reactions_love=reactions["love"],
@@ -249,6 +289,7 @@ class CommentScraper:
             node = edge.get("node", {})
             fb = node.get("feedback", {})
             reactions = _extract_reaction_breakdown(fb)
+            media_type, media_url = _extract_attachment(node)
             
             reply_id = node.get("legacy_fbid") or node.get("id") or ""
             author_node = node.get("author", {}) or {}
@@ -262,6 +303,8 @@ class CommentScraper:
                 text=(node.get("body") or {}).get("text", ""),
                 author_name=author_node.get("name", ""),
                 author_url=author_node.get("url", ""),
+                media_type=media_type,
+                media_url=media_url,
                 reaction_count=reactions["total"],
                 reactions_like=reactions["like"],
                 reactions_love=reactions["love"],

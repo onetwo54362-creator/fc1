@@ -52,18 +52,20 @@ class ExcelExporter:
             8: 20,  # Author Name
             9: 40,  # Author URL
             10: 60, # Comment Text
-            11: 12, # Reactions Total
-            12: 8,  # 👍 Like
-            13: 8,  # ❤️ Love
-            14: 8,  # 😂 Haha
-            15: 8,  # 😮 Wow
-            16: 8,  # 😢 Sad
-            17: 8,  # 😠 Angry
-            18: 8,  # 🤗 Care
-            19: 12, # Reply Count
-            20: 10, # Is Reply
-            21: 18, # Parent Comment ID
-            22: 20, # Scraped At
+            11: 12, # Media Type
+            12: 40, # Media URL
+            13: 12, # Reactions Total
+            14: 8,  # 👍 Like
+            15: 8,  # ❤️ Love
+            16: 8,  # 😂 Haha
+            17: 8,  # 😮 Wow
+            18: 8,  # 😢 Sad
+            19: 8,  # 😠 Angry
+            20: 8,  # 🤗 Care
+            21: 12, # Reply Count
+            22: 10, # Is Reply
+            23: 18, # Parent Comment ID
+            24: 20, # Scraped At
         }
         for col, width in column_widths.items():
             self._sheet.column_dimensions[get_column_letter(col)].width = width
@@ -79,8 +81,8 @@ class ExcelExporter:
             cell = self._sheet.cell(row=self._current_row, column=col_idx, value=value)
             cell.alignment = DATA_ALIGNMENT
             
-            # Make Post URL (col 1) and Author URL (col 9) clickable
-            if col_idx in (1, 9) and value: 
+            # Make Post URL (col 1), Author URL (col 9), and Media URL (col 12) clickable
+            if col_idx in (1, 9, 12) and value: 
                 try:
                     cell.hyperlink = value
                     cell.font = Font(color="1155CC", underline="single")

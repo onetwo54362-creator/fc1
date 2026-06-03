@@ -18,6 +18,8 @@ class CommentData:
     text: str = ""
     author_name: str = ""
     author_url: str = ""
+    media_type: str = ""            # "photo", "video", "gif", "sticker"
+    media_url: str = ""             # URL to the attached media
     reaction_count: int = 0
     reactions_like: int = 0
     reactions_love: int = 0
@@ -52,6 +54,8 @@ class CommentData:
             "author_name": self.author_name,
             "author_url": self.author_url,
             "text": self.text,
+            "media_type": self.media_type,
+            "media_url": self.media_url,
             "reaction_count": self.reaction_count,
             "reactions_like": self.reactions_like,
             "reactions_love": self.reactions_love,
@@ -79,6 +83,8 @@ class CommentData:
             self.author_name,
             self.author_url,
             self.text,
+            self.media_type,
+            self.media_url,
             self.reaction_count,
             self.reactions_like,
             self.reactions_love,
@@ -104,6 +110,8 @@ EXCEL_HEADERS = [
     "Author Name",
     "Author URL",
     "Comment Text",
+    "Media Type",
+    "Media URL",
     "Reactions Total",
     "👍 Like",
     "❤️ Love",
@@ -117,4 +125,5 @@ EXCEL_HEADERS = [
     "Parent Comment ID",
     "Scraped At (ISO)",
 ]
+
 
