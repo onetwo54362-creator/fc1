@@ -22,6 +22,9 @@ log = logging.getLogger("fb-comments")
 def parse_cookies(cookie_str: str) -> dict:
     import json
     cookies = {}
+    cookie_str = cookie_str.strip()
+    
+    # 1. Try JSON format
     try:
         parsed = json.loads(cookie_str)
         if isinstance(parsed, list):
@@ -34,10 +37,24 @@ def parse_cookies(cookie_str: str) -> dict:
     except json.JSONDecodeError:
         pass
 
+    # 2. Try Netscape format (tab-separated)
+    if "# Netscape" in cookie_str or "\t" in cookie_str:
+        for line in cookie_str.splitlines():
+            line = line.strip()
+            if not line or line.startswith("#"):
+                continue
+            parts = line.split("\t")
+            if len(parts) >= 7:
+                cookies[parts[5]] = parts[6]
+        if cookies:
+            return cookies
+
+    # 3. Try key=value; format
     for part in cookie_str.split(";"):
         if "=" in part:
             k, v = part.split("=", 1)
             cookies[k.strip()] = v.strip()
+            
     return cookies
 
 async def main():
