@@ -171,10 +171,19 @@ class GraphQLEngine:
         log.warning("⚠️ Could not find fb_dtsg automatically. GraphQL requests may fail!")
         return None
 
-    async def resolve_post_id(self, post_url: str) -> Optional[str]:
-        """Fetch the post URL and extract the actual base64 feedback ID from the HTML."""
+    async def resolve_post_id(self, post_url: str) -> Optional[dict]:
+        """Fetch the post URL and extract the actual base64 feedback ID from the HTML, 
+        along with basic post context (author name, text)."""
         import re
+        import json
         import base64
+        
+        post_info = {
+            "post_url": post_url,
+            "feedback_id": "",
+            "post_author_name": "",
+            "post_text": ""
+        }
         
         try:
             headers = get_base_headers(user_agent=self._user_agent)
@@ -189,6 +198,22 @@ class GraphQLEngine:
             response = await self._client.get(post_url, headers=headers)
             
             if response.status_code == 200:
+                html = response.text
+                
+                # Extract basic info for context
+                author_match = re.search(r'"actors":\[\{[^}]*?"name":"([^"]+)"', html)
+                if not author_match:
+                    author_match = re.search(r'"owning_profile":\{[^}]*?"name":"([^"]+)"', html)
+                if author_match:
+                    post_info["post_author_name"] = author_match.group(1)
+                    
+                text_match = re.search(r'"message":\{"text":"([^"]+)"\}', html)
+                if text_match:
+                    try:
+                        post_info["post_text"] = json.loads(f'"{text_match.group(1)}"')
+                    except:
+                        post_info["post_text"] = text_match.group(1)
+                
                 # Look for feedback ID in the deeply nested JSON of the page source
                 patterns = [
                     r'"feedback_id":"(ZmVlZGJh[^"]+)"',
@@ -198,12 +223,13 @@ class GraphQLEngine:
                 ]
                 
                 for p in patterns:
-                    matches = re.findall(p, response.text)
+                    matches = re.findall(p, html)
                     for m in matches:
                         try:
                             decoded = base64.b64decode(m).decode('utf-8')
                             if "feedback:" in decoded and "_" not in decoded:
-                                return m
+                                post_info["feedback_id"] = m
+                                return post_info
                         except:
                             pass
                         
@@ -223,7 +249,8 @@ class GraphQLEngine:
                         break
                         
                 if raw_id:
-                    return base64.b64encode(f"feedback:{raw_id}".encode('utf-8')).decode('utf-8')
+                    post_info["feedback_id"] = base64.b64encode(f"feedback:{raw_id}".encode('utf-8')).decode('utf-8')
+                    return post_info
                     
         except Exception as e:
             log.error(f"Error fetching post URL to resolve ID: {e}")

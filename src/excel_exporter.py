@@ -42,15 +42,21 @@ class ExcelExporter:
             cell.border = HEADER_BORDER
 
         column_widths = {
-            1: 18,  # Comment ID
-            2: 18,  # Post ID
-            3: 20,  # Author Name
-            4: 40,  # Author URL
-            5: 60,  # Text
-            6: 12,  # Reaction Count
-            7: 10,  # Is Reply
-            8: 18,  # Parent ID
-            9: 20,  # Scraped At
+            1: 40,  # Post URL
+            2: 20,  # Post Author Name
+            3: 60,  # Post Text
+            4: 10,  # Comment #
+            5: 12,  # Type
+            6: 18,  # Comment ID
+            7: 18,  # Post ID
+            8: 20,  # Author Name
+            9: 40,  # Author URL
+            10: 60, # Comment Text
+            11: 12, # Reaction Count
+            12: 12, # Reply Count
+            13: 10, # Is Reply
+            14: 18, # Parent Comment ID
+            15: 20, # Scraped At
         }
         for col, width in column_widths.items():
             self._sheet.column_dimensions[get_column_letter(col)].width = width
@@ -66,12 +72,19 @@ class ExcelExporter:
             cell = self._sheet.cell(row=self._current_row, column=col_idx, value=value)
             cell.alignment = DATA_ALIGNMENT
             
-            if col_idx == 4 and value: # Author URL
+            # Make Post URL (col 1) and Author URL (col 9) clickable
+            if col_idx in (1, 9) and value: 
                 try:
                     cell.hyperlink = value
                     cell.font = Font(color="1155CC", underline="single")
                 except:
                     pass
+        
+        # Subtle gray background for reply rows to visually group them
+        if comment.is_reply:
+            reply_fill = PatternFill(start_color="F0F0F0", end_color="F0F0F0", fill_type="solid")
+            for col_idx in range(1, len(row_data) + 1):
+                self._sheet.cell(row=self._current_row, column=col_idx).fill = reply_fill
 
     def save_to_bytes(self) -> bytes:
         buffer = io.BytesIO()

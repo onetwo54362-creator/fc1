@@ -118,18 +118,20 @@ async def main():
             # In Facebook's backend, the post ID is often the feedback ID,
             # or it requires a base64 encoded string.
             # We will use our basic regex resolver.
-            feedback_id = await engine.resolve_post_id(post_url)
-            if not feedback_id:
+            post_info = await engine.resolve_post_id(post_url)
+            if not post_info or not post_info.get("feedback_id"):
                 log.warning(f"❌ Could not resolve feedback/post ID for {post_url}. Make sure it's a direct post URL.")
                 continue
                 
-            log.info(f"✅ Found ID: {feedback_id}")
+            feedback_id = post_info["feedback_id"]
+            log.info(f"✅ Found ID: {feedback_id} | Author: {post_info.get('post_author_name')}")
             
             # 2. Fetch comments
             comments = await scraper.fetch_comments(
                 feedback_id=feedback_id, 
                 post_id=feedback_id, 
-                max_comments=max_comments
+                max_comments=max_comments,
+                post_info=post_info
             )
             
             # 3. Export

@@ -1,0 +1,7 @@
+author: Melvin Mar
+actors: ABS-CBN News
+owning_profile: ABS-CBN News
+title: Facebook
+ABS-CBN context: {"__typename":"User","name":"ABS-CBN News","id":"100064957951102"}
+ABS-CBN context: {"__typename":"User","name":"ABS-CBN News","id":"100064957951102"}
+ABS-CBN context: {"__typename":"User","name":"ABS-CBN News","id":"100064957951102","is_verified":true,"__isActor":"User","__isEntity":"User","url":"https:\/\/www.facebook.com\/abscbnNEWS","work_foreign_entity_info":null,"work_info":null}

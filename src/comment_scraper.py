@@ -24,13 +24,14 @@ class CommentScraper:
         self._total_replies = 0
 
     async def fetch_comments(
-        self, feedback_id: str, post_id: str, max_comments: int = 0
+        self, feedback_id: str, post_id: str, max_comments: int = 0, post_info: dict = None
     ) -> list[CommentData]:
         if not feedback_id:
             log.warning("No feedback_id provided, cannot fetch comments.")
             return []
 
-        comments = []
+        # Phase 1: Collect all top-level comments
+        raw_comments = []
         cursor = None
         page_num = 0
 
@@ -81,6 +82,9 @@ class CommentScraper:
                 author_node = node.get("author", {}) or {}
                 
                 comment = CommentData(
+                    post_url=post_info.get("post_url", "") if post_info else "",
+                    post_author_name=post_info.get("post_author_name", "") if post_info else "",
+                    post_text=post_info.get("post_text", "") if post_info else "",
                     comment_id=comment_id,
                     post_id=post_id,
                     text=(node.get("body") or {}).get("text", ""),
@@ -94,12 +98,8 @@ class CommentScraper:
                     is_reply=False
                 )
 
-                comments.append(comment)
+                raw_comments.append(comment)
                 self._total_comments += 1
-
-                if self.include_replies and comment.feedback_id and comment.expansion_token:
-                    replies = await self._fetch_replies(comment)
-                    comments.extend(replies)
 
                 if max_comments > 0 and self._total_comments >= max_comments:
                     break
@@ -114,11 +114,36 @@ class CommentScraper:
             if self.rate_limiter:
                 await self.rate_limiter.pagination_delay()
 
+        # Phase 2: Fetch replies for each comment, number everything, 
+        # and build final threaded list
+        results = []
+        comment_num = 0
+
+        for comment in raw_comments:
+            comment_num += 1
+            comment.comment_number = f"#{comment_num}"
+
+            # Fetch replies if available
+            replies = []
+            if self.include_replies and comment.feedback_id and comment.expansion_token:
+                replies = await self._fetch_replies(comment)
+
+            # Set reply_count on the parent comment
+            comment.reply_count = len(replies)
+
+            # Number the replies: #1.1, #1.2, etc.
+            for reply_idx, reply in enumerate(replies, 1):
+                reply.comment_number = f"#{comment_num}.{reply_idx}"
+
+            # Append in threaded order: comment first, then its replies
+            results.append(comment)
+            results.extend(replies)
+
         log.info(
             f"  💬 Fetched {self._total_comments} comments, "
             f"{self._total_replies} replies for post {post_id}"
         )
-        return comments
+        return results
 
     async def _fetch_replies(self, parent_comment: CommentData) -> list[CommentData]:
         """Fetch replies for a single comment."""
@@ -164,6 +189,9 @@ class CommentScraper:
             author_node = node.get("author", {}) or {}
 
             reply = CommentData(
+                post_url=parent_comment.post_url,
+                post_author_name=parent_comment.post_author_name,
+                post_text=parent_comment.post_text,
                 comment_id=reply_id,
                 post_id=parent_comment.post_id,
                 text=(node.get("body") or {}).get("text", ""),
