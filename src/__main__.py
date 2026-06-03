@@ -102,9 +102,8 @@ async def main():
         )
         
         if not fb_dtsg:
-            # We don't have the full auto-fetch in this stripped down version,
-            # so we'll just log it. (In a full app we could include the auto-fetch).
-            log.warning("No fb_dtsg provided! Fetching might fail if required by Facebook.")
+            log.info("No fb_dtsg provided in input, attempting to auto-fetch...")
+            await engine.auto_fetch_fb_dtsg()
 
         exporter = ExcelExporter() if excel_export else None
         scraper = CommentScraper(engine, rate_limiter, include_replies)

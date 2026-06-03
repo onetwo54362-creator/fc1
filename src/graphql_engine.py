@@ -117,6 +117,60 @@ class GraphQLEngine:
 
         return {}
 
+    async def auto_fetch_fb_dtsg(self) -> Optional[str]:
+        """Auto-fetch the fb_dtsg CSRF token from Facebook.
+        
+        Tries multiple pages and regex patterns to find the token.
+        """
+        import re
+        log.info("🔑 Auto-fetching fb_dtsg token from Facebook...")
+
+        # All known patterns for fb_dtsg in Facebook HTML/JS
+        dtsg_patterns = [
+            r'\["DTSGInitData",\[\],\{"token":"([^"]+)"',
+            r'\["DTSGInitialData",\[\],\{"token":"([^"]+)"',
+            r'"DTSGInitData",\[\],\{"token":"([^"]+)"',
+            r'"DTSGInitialData",\[\],\{"token":"([^"]+)"',
+            r'"dtsg":\{"token":"([^"]+)"',
+            r'"fb_dtsg":"([^"]+)"',
+            r'name="fb_dtsg" value="([^"]+)"',
+        ]
+
+        urls_to_try = [
+            "https://www.facebook.com/",
+            "https://www.facebook.com/settings",
+        ]
+
+        for url in urls_to_try:
+            try:
+                headers = get_base_headers(user_agent=self._user_agent)
+                headers.update({
+                    "accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8",
+                    "sec-fetch-dest": "document",
+                    "sec-fetch-mode": "navigate",
+                    "sec-fetch-site": "none",
+                    "sec-fetch-user": "?1",
+                    "upgrade-insecure-requests": "1",
+                })
+                response = await self._client.get(url, headers=headers)
+
+                if response.status_code != 200:
+                    continue
+
+                for pattern in dtsg_patterns:
+                    matches = re.findall(pattern, response.text)
+                    for token in matches:
+                        if len(token) > 10 and not token.isdigit():
+                            log.info(f"✅ Auto-fetched fb_dtsg token from {url}")
+                            self.fb_dtsg = token
+                            return token
+
+            except Exception as e:
+                continue
+
+        log.warning("⚠️ Could not find fb_dtsg automatically. GraphQL requests may fail!")
+        return None
+
     async def resolve_post_id(self, post_url: str) -> Optional[str]:
         """Fetch the post URL and extract the actual base64 feedback ID from the HTML."""
         import re
@@ -124,6 +178,14 @@ class GraphQLEngine:
         
         try:
             headers = get_base_headers(user_agent=self._user_agent)
+            headers.update({
+                "accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8",
+                "sec-fetch-dest": "document",
+                "sec-fetch-mode": "navigate",
+                "sec-fetch-site": "none",
+                "sec-fetch-user": "?1",
+                "upgrade-insecure-requests": "1",
+            })
             response = await self._client.get(post_url, headers=headers)
             
             if response.status_code == 200:
