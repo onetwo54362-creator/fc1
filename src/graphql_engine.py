@@ -118,29 +118,48 @@ class GraphQLEngine:
         return {}
 
     async def resolve_post_id(self, post_url: str) -> Optional[str]:
-        """Extract the feedback/post ID from a URL using regex."""
+        """Fetch the post URL and extract the actual base64 feedback ID from the HTML."""
         import re
         import base64
         
-        # E.g. facebook.com/pagename/posts/123456
-        patterns = [
-            r'/posts/(\d+)',
-            r'/videos/(\d+)',
-            r'/photos/[^/]+/(\d+)',
-            r'fbid=(\d+)',
-            r'/groups/[^/]+/permalink/(\d+)',
-        ]
-        
-        raw_id = None
-        for pattern in patterns:
-            match = re.search(pattern, post_url)
-            if match:
-                raw_id = match.group(1)
-                break
+        try:
+            headers = get_base_headers(user_agent=self._user_agent)
+            response = await self._client.get(post_url, headers=headers)
+            
+            if response.status_code == 200:
+                # Look for feedback ID in the deeply nested JSON of the page source
+                patterns = [
+                    r'"feedback_id":"(ZmVlZGJh[^"]+)"',
+                    r'"feedback":\{"id":"(ZmVlZGJh[^"]+)"',
+                    r'"target_feedback":\{"id":"(ZmVlZGJh[^"]+)"',
+                    r'"feedback_target_with_context":\{"feedback_id":"(ZmVlZGJh[^"]+)"'
+                ]
                 
-        if raw_id:
-            # Facebook GraphQL usually expects the feedback ID to be base64 encoded
-            return base64.b64encode(f"feedback:{raw_id}".encode('utf-8')).decode('utf-8')
+                for p in patterns:
+                    match = re.search(p, response.text)
+                    if match:
+                        return match.group(1)
+                        
+                # Fallback to URL regex if HTML parsing fails
+                fallback_patterns = [
+                    r'/posts/(\d+)',
+                    r'/videos/(\d+)',
+                    r'/photos/[^/]+/(\d+)',
+                    r'fbid=(\d+)',
+                    r'/groups/[^/]+/permalink/(\d+)',
+                ]
+                raw_id = None
+                for fp in fallback_patterns:
+                    m = re.search(fp, post_url)
+                    if m:
+                        raw_id = m.group(1)
+                        break
+                        
+                if raw_id:
+                    return base64.b64encode(f"feedback:{raw_id}".encode('utf-8')).decode('utf-8')
+                    
+        except Exception as e:
+            log.error(f"Error fetching post URL to resolve ID: {e}")
 
         return None
 
